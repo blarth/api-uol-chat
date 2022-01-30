@@ -1,4 +1,5 @@
 import { MongoClient } from "mongodb";
+import { stripHtml } from "string-strip-html";
 import cors from "cors";
 import express, { json } from "express";
 import joi from "joi";
@@ -38,6 +39,12 @@ async function handleMsgLeave(user) {
     mongoClient.close();
   }
 }
+function handleData(string){
+
+  const newString = stripHtml(string)
+
+  return newString.trim()
+}
 
 app.post("/participants", async (req, res) => {
   const newUsername = req.body.name;
@@ -49,6 +56,7 @@ app.post("/participants", async (req, res) => {
     console.log(validation.error.details);
     return;
   }
+  newUsername = handleData(newUsername)
 
   try {
     await mongoClient.connect();
@@ -115,6 +123,9 @@ app.post("/messages", async (req, res) => {
     res.status(422).send(validation.error.details);
     return;
   }
+
+  bodyMessage = handleData(bodyMessage)
+  userVal = handleData(userVal)
 
   await mongoClient.connect();
 
