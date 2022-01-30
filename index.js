@@ -1,4 +1,4 @@
-import { MongoClient } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 import { stripHtml } from "string-strip-html";
 import cors from "cors";
 import express, { json } from "express";
@@ -6,6 +6,7 @@ import joi from "joi";
 
 import dotenv from "dotenv";
 import dayjs from "dayjs";
+
 
 dotenv.config();
 
@@ -40,10 +41,12 @@ async function handleMsgLeave(user) {
   }
 }
 function handleData(string){
+  
+  let newString = string.trim()
 
-  const newString = stripHtml(string)
+  newString = stripHtml(newString).result
 
-  return newString.trim()
+  return newString
 }
 
 app.post("/participants", async (req, res) => {
@@ -56,13 +59,15 @@ app.post("/participants", async (req, res) => {
     console.log(validation.error.details);
     return;
   }
-  newUsername = handleData(newUsername)
+  const newUsernameSanitized = handleData(newUsername)
+
+  console.log(newUsernameSanitized)
 
   try {
     await mongoClient.connect();
     const fetchUser = await db
       .collection("participants")
-      .findOne({ name: newUsername });
+      .findOne({ name: newUsernameSanitized });
 
     if (fetchUser) {
       res.sendStatus(409);
@@ -73,13 +78,13 @@ app.post("/participants", async (req, res) => {
     const collectionUser = mongoClient.db("uol").collection("participants");
 
     await collectionUser.insertOne({
-      name: newUsername,
+      name: newUsernameSanitized,
       lastStatus: Date.now(),
     });
     const collectionMsg = mongoClient.db("uol").collection("messages");
 
     await collectionMsg.insertOne({
-      from: newUsername,
+      from: newUsernameSanitized,
       to: "Todos",
       text: "entra na sala..",
       type: "status",
@@ -104,18 +109,15 @@ app.get("/participants", async (req, res) => {
     res.send(users);
     mongoClient.close();
   } catch (error) {
-    console.log(error);
+    res.status(500).send(error);
     
-    if (mongoClient) {
-      mongoClient.close();
-      return;
-    }
+  
   }
 });
 
 app.post("/messages", async (req, res) => {
   const bodyMessage = req.body;
-  const userVal = req.headers.user;
+  let userVal = req.headers.user;
 
   const validation = schemaMessage.validate(bodyMessage);
 
@@ -124,7 +126,10 @@ app.post("/messages", async (req, res) => {
     return;
   }
 
-  bodyMessage = handleData(bodyMessage)
+  
+  bodyMessage.to = handleData(bodyMessage.to)
+  bodyMessage.text = handleData(bodyMessage.text)
+  bodyMessage.type = handleData(bodyMessage.type)
   userVal = handleData(userVal)
 
   await mongoClient.connect();
@@ -204,6 +209,47 @@ app.post("/status", async (req, res) => {
     mongoClient.close();
   }
 });
+
+
+
+app.delete("/messages/:idMessage" , async (req, res) => {
+
+  const user = req.headers.user
+  const {idMessage} = req.params
+
+
+  try {
+    await mongoClient.connect()
+
+    const fetchMsg = await db.collection("messages").findOne({_id : new ObjectId(idMessage)})   
+    
+    if(!fetchMsg){
+      res.sendStatus(404)
+      return 
+    }
+
+    if(fetchMsg.from !== user){
+      res.statusCode(401)
+      mongoClient.close()
+      return
+    }
+
+    await db.collection("messages").deleteOne({_id : fetchMsg._id})
+    res.statusCode(200)
+    
+  } catch (error)
+   {
+     mongoClient.close()
+    res.status(500).send(error)
+  }
+   
+  mongoClient.close()
+  
+  
+})
+
+
+
 setInterval(async () => {
   await mongoClient.connect();
   try {
