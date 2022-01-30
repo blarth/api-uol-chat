@@ -7,7 +7,6 @@ import joi from "joi";
 import dotenv from "dotenv";
 import dayjs from "dayjs";
 
-
 dotenv.config();
 
 const app = express();
@@ -40,13 +39,12 @@ async function handleMsgLeave(user) {
     mongoClient.close();
   }
 }
-function handleData(string){
-  
-  let newString = string.trim()
+function handleData(string) {
+  let newString = string.trim();
 
-  newString = stripHtml(newString).result
+  newString = stripHtml(newString).result;
 
-  return newString
+  return newString;
 }
 
 app.post("/participants", async (req, res) => {
@@ -59,9 +57,7 @@ app.post("/participants", async (req, res) => {
     console.log(validation.error.details);
     return;
   }
-  const newUsernameSanitized = handleData(newUsername)
-
-  console.log(newUsernameSanitized)
+  const newUsernameSanitized = handleData(newUsername);
 
   try {
     await mongoClient.connect();
@@ -110,8 +106,6 @@ app.get("/participants", async (req, res) => {
     mongoClient.close();
   } catch (error) {
     res.status(500).send(error);
-    
-  
   }
 });
 
@@ -126,11 +120,10 @@ app.post("/messages", async (req, res) => {
     return;
   }
 
-  
-  bodyMessage.to = handleData(bodyMessage.to)
-  bodyMessage.text = handleData(bodyMessage.text)
-  bodyMessage.type = handleData(bodyMessage.type)
-  userVal = handleData(userVal)
+  bodyMessage.to = handleData(bodyMessage.to);
+  bodyMessage.text = handleData(bodyMessage.text);
+  bodyMessage.type = handleData(bodyMessage.type);
+  userVal = handleData(userVal);
 
   await mongoClient.connect();
 
@@ -188,7 +181,7 @@ app.get("/messages", async (req, res) => {
 
 app.post("/status", async (req, res) => {
   const userVal = req.headers.user;
-  
+
   try {
     await mongoClient.connect();
     const fetchUser = await db
@@ -210,45 +203,106 @@ app.post("/status", async (req, res) => {
   }
 });
 
-
-
-app.delete("/messages/:idMessage" , async (req, res) => {
-
-  const user = req.headers.user
-  const {idMessage} = req.params
-
+app.delete("/messages/:idMessage", async (req, res) => {
+  const user = req.headers.user;
+  const { idMessage } = req.params;
 
   try {
-    await mongoClient.connect()
+    await mongoClient.connect();
 
-    const fetchMsg = await db.collection("messages").findOne({_id : new ObjectId(idMessage)})   
-    
-    if(!fetchMsg){
-      res.sendStatus(404)
-      return 
+    const fetchMsg = await db
+      .collection("messages")
+      .findOne({ _id: new ObjectId(idMessage) });
+
+    if (!fetchMsg) {
+      res.sendStatus(404);
+      return;
     }
 
-    if(fetchMsg.from !== user){
-      res.statusCode(401)
-      mongoClient.close()
-      return
+    if (fetchMsg.from !== user) {
+      res.statusCode(401);
+      mongoClient.close();
+      return;
     }
 
-    await db.collection("messages").deleteOne({_id : fetchMsg._id})
-    res.statusCode(200)
-    
-  } catch (error)
-   {
-     mongoClient.close()
-    res.status(500).send(error)
+    await db.collection("messages").deleteOne({ _id: fetchMsg._id });
+    res.statusCode(200);
+  } catch (error) {
+    mongoClient.close();
+    res.status(500).send(error);
   }
-   
-  mongoClient.close()
-  
-  
-})
+
+  mongoClient.close();
+});
+app.put("/messages/:idMessage", async (req, res) => {
+  let user = req.headers.user;
+  const { idMessage } = req.params;
+  const bodyMessage = req.body;
+
+  const validation = schemaMessage.validate(bodyMessage);
 
 
+  if (validation.error) {
+    res.status(422).send(validation.error.details);
+    return;
+  }
+
+  await mongoClient.connect();
+
+
+  const fetchUser = await db.collection("participants").findOne({ name: user });
+  if (!fetchUser) {
+    res.status(422).send("User must be someone in the participants list");
+    mongoClient.close();
+    return;
+  }
+
+  bodyMessage.to = handleData(bodyMessage.to);
+  bodyMessage.text = handleData(bodyMessage.text);
+  bodyMessage.type = handleData(bodyMessage.type);
+  user = handleData(user);
+
+  try {
+    
+    const fetchMsg = await db
+      .collection("messages")
+      .findOne({ _id: new ObjectId(idMessage) });
+
+    if (!fetchMsg) {
+      res.sendStatus(404);
+      mongoClient.close();
+      return;
+    }
+
+    if (fetchMsg.from !== user) {
+      res.statusCode(401);
+      mongoClient.close();
+      return;
+    }
+
+    await db
+      .collection("messages")
+      .updateOne(
+        { _id: fetchMsg._id },
+        {
+          $set: {
+            to: bodyMessage.to,
+            text: bodyMessage.text,
+            type: bodyMessage.type,
+            time: dayjs().format("hh:mm:ss"),
+          },
+        }
+      );
+    res.statusCode(200);
+    mongoClient.close();
+  } catch (error) {
+    
+    res.status(500).send(error);
+    mongoClient.close();
+  }
+
+  
+});
 
 setInterval(async () => {
   await mongoClient.connect();
@@ -256,9 +310,8 @@ setInterval(async () => {
     const fetchUsers = await db.collection("participants").find({}).toArray();
     const fetchInvalidUsers = fetchUsers.filter(
       (user) => Date.now() - user.lastStatus > 15000
-      
     );
-    
+
     mongoClient.close();
     fetchInvalidUsers.map(async (user) => {
       try {
@@ -269,7 +322,7 @@ setInterval(async () => {
       } catch (error) {
         console.log(error);
         mongoClient.close();
-        return
+        return;
       }
     });
   } catch (error) {
