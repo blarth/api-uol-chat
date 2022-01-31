@@ -173,17 +173,13 @@ app.get("/messages", async (req, res) => {
     res.status(500).send(error);
     mongoClient.close();
   }
-  if (mongoClient) {
-    mongoClient.close();
-    return;
-  }
 });
 
 app.post("/status", async (req, res) => {
   const userVal = req.headers.user;
-
+  await mongoClient.connect();
   try {
-    await mongoClient.connect();
+    
     const fetchUser = await db
       .collection("participants")
       .findOne({ name: userVal });
@@ -226,13 +222,14 @@ app.delete("/messages/:idMessage", async (req, res) => {
     }
 
     await db.collection("messages").deleteOne({ _id: fetchMsg._id });
-    res.statusCode(200);
+    res.sendStatus(200);
+    mongoClient.close();
   } catch (error) {
     mongoClient.close();
     res.status(500).send(error);
   }
 
-  mongoClient.close();
+  
 });
 app.put("/messages/:idMessage", async (req, res) => {
   let user = req.headers.user;
@@ -293,7 +290,7 @@ app.put("/messages/:idMessage", async (req, res) => {
           },
         }
       );
-    res.statusCode(200);
+    res.sendStatus(200);
     mongoClient.close();
   } catch (error) {
     
@@ -314,8 +311,9 @@ setInterval(async () => {
 
     mongoClient.close();
     fetchInvalidUsers.map(async (user) => {
+      await mongoClient.connect();
       try {
-        await mongoClient.connect();
+        
         await db.collection("participants").deleteOne({ name: user.name });
         mongoClient.close();
         await handleMsgLeave(user.name);
@@ -335,10 +333,11 @@ app.listen(5000, () => {
   console.log("Server is running");
 });
 
-/* app.delete("/participants" , async (req, res) => {
-    try {
-        await mongoClient.connect();
-        const db = mongoClient.db("uol")
+app.delete("/participants" , async (req, res) => {
+    
+    await mongoClient.connect();
+  try {
+        
         const usersColection = db.collection("participants");
         await usersColection.deleteMany({})
                 
@@ -348,11 +347,10 @@ app.listen(5000, () => {
       res.status(500).send(error)
         mongoClient.close()
      }
-}) */
-/* app.delete("/message" , async (req, res) => {
+})
+app.delete("/message" , async (req, res) => {
     try {
         await mongoClient.connect();
-        const db = mongoClient.db("uol")
         const msgColection = db.collection("messages");
         await msgColection.deleteMany({})
                 
@@ -363,4 +361,4 @@ app.listen(5000, () => {
         mongoClient.close()
      }
 })
- */
+
