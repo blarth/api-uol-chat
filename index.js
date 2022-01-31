@@ -295,7 +295,7 @@ setInterval(async () => {
   try {
     const fetchUsers = await db.collection("participants").find({}).toArray();
     const fetchInvalidUsers = fetchUsers.filter(
-      (user) => Date.now() - user.lastStatus > 15000
+      (user) => Date.now() - user.lastStatus > 10000
     );
 
     mongoClient.close();
