@@ -179,7 +179,6 @@ app.post("/status", async (req, res) => {
   const userVal = req.headers.user;
   await mongoClient.connect();
   try {
-    
     const fetchUser = await db
       .collection("participants")
       .findOne({ name: userVal });
@@ -228,8 +227,6 @@ app.delete("/messages/:idMessage", async (req, res) => {
     mongoClient.close();
     res.status(500).send(error);
   }
-
-  
 });
 app.put("/messages/:idMessage", async (req, res) => {
   let user = req.headers.user;
@@ -238,14 +235,12 @@ app.put("/messages/:idMessage", async (req, res) => {
 
   const validation = schemaMessage.validate(bodyMessage);
 
-
   if (validation.error) {
     res.status(422).send(validation.error.details);
     return;
   }
 
   await mongoClient.connect();
-
 
   const fetchUser = await db.collection("participants").findOne({ name: user });
   if (!fetchUser) {
@@ -260,7 +255,6 @@ app.put("/messages/:idMessage", async (req, res) => {
   user = handleData(user);
 
   try {
-    
     const fetchMsg = await db
       .collection("messages")
       .findOne({ _id: new ObjectId(idMessage) });
@@ -277,28 +271,23 @@ app.put("/messages/:idMessage", async (req, res) => {
       return;
     }
 
-    await db
-      .collection("messages")
-      .updateOne(
-        { _id: fetchMsg._id },
-        {
-          $set: {
-            to: bodyMessage.to,
-            text: bodyMessage.text,
-            type: bodyMessage.type,
-            time: dayjs().format("hh:mm:ss"),
-          },
-        }
-      );
+    await db.collection("messages").updateOne(
+      { _id: fetchMsg._id },
+      {
+        $set: {
+          to: bodyMessage.to,
+          text: bodyMessage.text,
+          type: bodyMessage.type,
+          time: dayjs().format("hh:mm:ss"),
+        },
+      }
+    );
     res.sendStatus(200);
     mongoClient.close();
   } catch (error) {
-    
     res.status(500).send(error);
     mongoClient.close();
   }
-
-  
 });
 
 setInterval(async () => {
@@ -313,7 +302,6 @@ setInterval(async () => {
     fetchInvalidUsers.map(async (user) => {
       await mongoClient.connect();
       try {
-        
         await db.collection("participants").deleteOne({ name: user.name });
         mongoClient.close();
         await handleMsgLeave(user.name);
@@ -333,32 +321,29 @@ app.listen(5000, () => {
   console.log("Server is running");
 });
 
-app.delete("/participants" , async (req, res) => {
-    
-    await mongoClient.connect();
+app.delete("/participants", async (req, res) => {
+  await mongoClient.connect();
   try {
-        
-        const usersColection = db.collection("participants");
-        await usersColection.deleteMany({})
-                
-        res.sendStatus(200)
-        mongoClient.close()
-     } catch (error) {
-      res.status(500).send(error)
-        mongoClient.close()
-     }
-})
-app.delete("/message" , async (req, res) => {
-    try {
-        await mongoClient.connect();
-        const msgColection = db.collection("messages");
-        await msgColection.deleteMany({})
-                
-        res.sendStatus(200)
-        mongoClient.close()
-     } catch (error) {
-      res.status(500).send(error)
-        mongoClient.close()
-     }
-})
+    const usersColection = db.collection("participants");
+    await usersColection.deleteMany({});
 
+    res.sendStatus(200);
+    mongoClient.close();
+  } catch (error) {
+    res.status(500).send(error);
+    mongoClient.close();
+  }
+});
+app.delete("/message", async (req, res) => {
+  try {
+    await mongoClient.connect();
+    const msgColection = db.collection("messages");
+    await msgColection.deleteMany({});
+
+    res.sendStatus(200);
+    mongoClient.close();
+  } catch (error) {
+    res.status(500).send(error);
+    mongoClient.close();
+  }
+});
